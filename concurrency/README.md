@@ -2,6 +2,8 @@
 
 Trong bài này chúng ta sẽ thực hành và quan sát xem điều gì sẽ xảy ra khi có quá nhiều invocation đồng thời đến lambda function.
 
+![iamge](image.png)
+
 ## Tóm tắt các bước
 
 1. Tạo và config lambda function
