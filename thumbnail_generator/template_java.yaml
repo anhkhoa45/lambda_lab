@@ -1,0 +1,89 @@
+AWSTemplateFormatVersion: '2010-09-09'
+
+Description: >
+  AWS Lambda to process an Amazon S3 event input image. Resizes the image in the source bucket and save the output to the target bucket.
+
+Resources:
+
+  SrcEventBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub '${AWS::AccountId}-image-bucket'
+      NotificationConfiguration:
+        LambdaConfigurations:
+          - Event: s3:ObjectCreated:*
+            Function: !GetAtt ThumbnailGenerator.Arn
+
+  TgtBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub '${AWS::AccountId}-thumbnail-bucket'
+
+  ThumbnailGeneratorRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: ThumbnailGeneratorRole
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action:
+            - sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service:
+              - lambda.amazonaws.com
+        Version: 2012-10-17
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AWSLambdaExecute
+      Path: /
+
+  ThumbnailGenerator:
+    Type: AWS::Lambda::Function
+    Properties:
+      Description: 'AWS Lambda to process newly uploaded images and store in target bucket'
+      FunctionName: 'ThumbnailGenerator'
+      Handler: example.Handler
+      Code:
+          S3Bucket: !Sub '${AWS::AccountId}-lambda-code-bucket'
+          S3Key: thumbnail_generator_jar.zip
+      PackageType: Zip
+      Runtime: java8
+      Timeout: 30
+      MemorySize: 256
+      Environment:
+        Variables:
+          DESTINATION_BUCKET:
+            !Ref TgtBucket
+      Role: !GetAtt ThumbnailGeneratorRole.Arn
+      Layers:
+        - !Ref ThumbnailGeneratorLib
+
+  ThumbnailGeneratorLib:
+    Type: AWS::Lambda::LayerVersion
+    Properties:
+      LayerName: s3-java-lib
+      Description: Dependencies for the Java S3 sample app.
+      Content:
+        S3Bucket: !Sub '${AWS::AccountId}-lambda-code-bucket'
+        S3Key: thumbnail_generator_lib.zip
+      CompatibleRuntimes:
+        - java8
+
+  ThumbnailGeneratorPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref ThumbnailGenerator
+      Principal: s3.amazonaws.com
+      SourceAccount: !Ref AWS::AccountId
+      SourceArn: !Sub 'arn:aws:s3:::${AWS::AccountId}-image-bucket'
+
+Outputs:
+  SrcS3Bucket:
+    Description: Source S3 Bucket that triggers the Lambda
+    Value: !Ref SrcEventBucket
+  TgtS3Bucket:
+    Description: Target S3 Bucket that triggers the Lambda
+    Value: !Ref TgtBucket
+  ThumbnailGeneratorFunction:
+    Description: ARN for the ThumbnailGenerator Lambda Function
+    Value: !GetAtt ThumbnailGenerator.Arn

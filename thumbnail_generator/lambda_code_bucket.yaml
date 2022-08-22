@@ -1,0 +1,16 @@
+AWSTemplateFormatVersion: '2010-09-09'
+
+Description: >
+  AWS Lambda to create Amazon S3 bucket to store lambda code
+
+Resources:
+
+  LambdaCodeBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub '${AWS::AccountId}-lambda-code-bucket'
+
+Outputs:
+  LambdaCodeS3Bucket:
+    Description: S3 Bucket to store Lambda code
+    Value: !Ref LambdaCodeBucket
